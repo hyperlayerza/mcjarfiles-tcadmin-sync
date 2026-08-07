@@ -1,0 +1,2 @@
+TCADMIN_API_KEY=paste-your-tcadmin-api-key-here
+SYNC_TRIGGER_SECRET=any-random-string-for-local-manual-trigger-testing

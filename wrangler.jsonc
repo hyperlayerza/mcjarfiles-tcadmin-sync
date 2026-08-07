@@ -1,0 +1,56 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mcjarfiles-tcadmin-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Pinned so `wrangler deploy` goes to Admin@layer-4.net's account without
+  // prompting, since this Cloudflare login has more than one account.
+  "account_id": "1658773c1d3cba6df598188286dccf0d",
+
+  // Runs every 5 minutes. Root cause of the earlier pause: Cloudflare's edge
+  // was caching GET /api/Game/{id}/Updates (cf-cache-status: HIT, Age in the
+  // thousands of seconds) for the exact query string this worker used,
+  // which fed stale data into the dedup logic. Fixed with a cache-busting
+  // param + `cache: "no-store"` in src/tcadmin.ts (verified: MISS + correct
+  // count with the buster). Re-enabled now that the fix is confirmed.
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+
+  // Non-secret config. Fill these in before your first deploy.
+  "vars": {
+    // Your TCAdmin panel's base URL, no trailing slash.
+    "TCADMIN_BASE_URL": "https://gamecp-beta.hyperlayer.net",
+
+    // The GameId of your Minecraft Java blueprint in TCAdmin.
+    // Find it in the panel URL when editing the game, or via
+    // GET /api/Game/Search?Filter=ShortName==minecraft
+    "TCADMIN_GAME_ID": "1",
+
+    // Comma-separated Role IDs that should be able to see/install these
+    // updates. An Update with no roles is admin-only in TCAdmin, so this
+    // MUST be set for customers to see anything. This panel's roles
+    // (Managers > Roles): 1 = Administrators, 2 = Sub Administrators,
+    // 3 = Users. All three are listed so every account type can see/install,
+    // matching "any user/admin should be able to see it."
+    "TCADMIN_CUSTOMER_ROLE_IDS": "1,2,3",
+
+    // Optional: ScriptId of the EULA/bootstrap script (see
+    // tcadmin-scripts/after-update-install.cs) to auto-attach to every
+    // Update this worker creates. Leave blank to attach none.
+    "TCADMIN_BOOTSTRAP_SCRIPT_ID": "",
+
+    // Which mcjarfiles.com types/variants to sync. Comma-separated
+    // "type/variant" pairs. See src/variants.ts for the supported list
+    // and display names. Leave unset to sync the built-in default set.
+    "MCJARFILES_VARIANTS": ""
+  }
+
+  // Secrets (never put these in this file — set them with `wrangler secret put <NAME>`):
+  //   TCADMIN_API_KEY        - API key generated in TCAdmin (ApiKey feature),
+  //                             needs Game/Updates read+write permission.
+  //   SYNC_TRIGGER_SECRET     - random string; required as ?secret= on the
+  //                             manual GET /sync trigger endpoint.
+}
